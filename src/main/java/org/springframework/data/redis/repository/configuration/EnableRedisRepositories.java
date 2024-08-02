@@ -188,6 +188,14 @@ public @interface EnableRedisRepositories {
 	ShadowCopy shadowCopy() default ShadowCopy.DEFAULT;
 
 	/**
+	 * Configuration flag controlling the expiration time in seconds for the phantom keys.
+	 *
+	 * @return
+	 * @since 3.3.3
+	 */
+	int phantomKeyTTLSeconds() default 300;
+
+	/**
 	 * Configure the {@literal notify-keyspace-events} property if not already set. <br />
 	 * Use an empty {@link String} to keep (<b>not</b> alter) existing server configuration.
 	 *

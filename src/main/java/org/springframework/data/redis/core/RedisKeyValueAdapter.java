@@ -104,11 +104,6 @@ import org.springframework.util.ObjectUtils;
 public class RedisKeyValueAdapter extends AbstractKeyValueAdapter
 		implements InitializingBean, ApplicationContextAware, ApplicationListener<RedisKeyspaceEvent> {
 
-	/**
-	 * Time To Live in seconds that phantom keys should live longer than the actual key.
-	 */
-	private static final int PHANTOM_KEY_TTL = 300;
-
 	private RedisOperations<?, ?> redisOps;
 	private RedisConverter converter;
 	private @Nullable RedisMessageListenerContainer messageListenerContainer;
@@ -119,6 +114,10 @@ public class RedisKeyValueAdapter extends AbstractKeyValueAdapter
 	private EnableKeyspaceEvents enableKeyspaceEvents = EnableKeyspaceEvents.OFF;
 	private @Nullable String keyspaceNotificationsConfigParameter = null;
 	private ShadowCopy shadowCopy = ShadowCopy.DEFAULT;
+	/**
+	 * Time To Live in seconds that phantom keys should live longer than the actual key.
+	 */
+	private int phantomKeyTTLSeconds = 300;
 
 	/**
 	 * Creates new {@link RedisKeyValueAdapter} with default {@link RedisMappingContext} and default
@@ -233,7 +232,7 @@ public class RedisKeyValueAdapter extends AbstractKeyValueAdapter
 				if (expires(rdo)) {
 					connection.del(phantomKey);
 					connection.hMSet(phantomKey, rdo.getBucket().rawMap());
-					connection.expire(phantomKey, rdo.getTimeToLive() + PHANTOM_KEY_TTL);
+					connection.expire(phantomKey, rdo.getTimeToLive() + phantomKeyTTLSeconds);
 				} else if (!isNew) {
 					connection.del(phantomKey);
 				}
@@ -463,7 +462,7 @@ public class RedisKeyValueAdapter extends AbstractKeyValueAdapter
 						byte[] phantomKey = ByteUtils.concat(redisKey, BinaryKeyspaceIdentifier.PHANTOM_SUFFIX);
 
 						connection.hMSet(phantomKey, rdo.getBucket().rawMap());
-						connection.expire(phantomKey, rdo.getTimeToLive() + PHANTOM_KEY_TTL);
+						connection.expire(phantomKey, rdo.getTimeToLive() + phantomKeyTTLSeconds);
 					}
 
 				} else {
@@ -684,6 +683,18 @@ public class RedisKeyValueAdapter extends AbstractKeyValueAdapter
 	 */
 	public void setShadowCopy(ShadowCopy shadowCopy) {
 		this.shadowCopy = shadowCopy;
+	}
+
+	/**
+	 * Configure phantom keys expire TTL
+	 *
+	 * @param phantomKeyTTLSeconds must not be bigger than 0
+	 * @since 3.3.3
+	 */
+	public void setPhantomKeyTTLSeconds(Integer phantomKeyTTLSeconds) {
+		Assert.notNull(phantomKeyTTLSeconds, "Phantom key TTL in seconds must not be null");
+		Assert.isTrue(phantomKeyTTLSeconds > 0, "Phantom key TTL in seconds must be bigger than 0");
+		this.phantomKeyTTLSeconds = phantomKeyTTLSeconds;
 	}
 
 	/**

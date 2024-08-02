@@ -21,6 +21,7 @@ import java.util.Collection;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry;
@@ -32,6 +33,7 @@ import org.springframework.core.type.StandardAnnotationMetadata;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.keyvalue.repository.KeyValueRepository;
 import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.RedisKeyValueAdapter;
 import org.springframework.data.redis.core.RedisKeyValueAdapter.EnableKeyspaceEvents;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.config.AnnotationRepositoryConfigurationSource;
@@ -117,6 +119,19 @@ class RedisRepositoryConfigurationExtensionUnitTests {
 		assertThat(getKeyspaceNotificationsConfigParameter(beanDefintionRegistry)).isEqualTo("");
 	}
 
+	@Test // DATAREDIS-1049
+	void explicitlyConfigWithShadowCopyAndPhantomKeyShouldBeCapturedCorrectly() {
+
+		metadata = new StandardAnnotationMetadata(ConfigWithShadowCopyAndPhantomKey.class, true);
+		BeanDefinitionRegistry beanDefintionRegistry = getBeanDefinitionRegistry();
+
+		MutablePropertyValues propertyValues = getRedisKeyValueAdapterProperties(beanDefintionRegistry);
+		assertThat(propertyValues.getPropertyValue("shadowCopy").getValue())
+				.isEqualTo(RedisKeyValueAdapter.ShadowCopy.ON);
+		assertThat(propertyValues.getPropertyValue("phantomKeyTTLSeconds").getValue())
+				.isEqualTo(150);
+	}
+
 	private static void assertDoesNotHaveRepo(Class<?> repositoryInterface,
 			Collection<RepositoryConfiguration<RepositoryConfigurationSource>> configs) {
 
@@ -157,13 +172,17 @@ class RedisRepositoryConfigurationExtensionUnitTests {
 	}
 
 	private Object getEnableKeyspaceEvents(BeanDefinitionRegistry beanDefintionRegistry) {
-		return beanDefintionRegistry.getBeanDefinition("redisKeyValueAdapter").getPropertyValues()
+		return getRedisKeyValueAdapterProperties(beanDefintionRegistry)
 				.getPropertyValue("enableKeyspaceEvents").getValue();
 	}
 
 	private Object getKeyspaceNotificationsConfigParameter(BeanDefinitionRegistry beanDefintionRegistry) {
-		return beanDefintionRegistry.getBeanDefinition("redisKeyValueAdapter").getPropertyValues()
+		return getRedisKeyValueAdapterProperties(beanDefintionRegistry)
 				.getPropertyValue("keyspaceNotificationsConfigParameter").getValue();
+	}
+
+	private MutablePropertyValues getRedisKeyValueAdapterProperties(BeanDefinitionRegistry beanDefintionRegistry) {
+		return beanDefintionRegistry.getBeanDefinition("redisKeyValueAdapter").getPropertyValues();
 	}
 
 	@EnableRedisRepositories(considerNestedRepositories = true, enableKeyspaceEvents = EnableKeyspaceEvents.ON_STARTUP)
@@ -185,6 +204,11 @@ class RedisRepositoryConfigurationExtensionUnitTests {
 	@EnableRedisRepositories(considerNestedRepositories = true, enableKeyspaceEvents = EnableKeyspaceEvents.ON_STARTUP,
 			keyspaceNotificationsConfigParameter = "")
 	private static class ConfigWithEmptyConfigParameter {
+
+	}
+
+	@EnableRedisRepositories(shadowCopy = RedisKeyValueAdapter.ShadowCopy.ON, phantomKeyTTLSeconds = 150)
+	private static class ConfigWithShadowCopyAndPhantomKey {
 
 	}
 
